@@ -1,0 +1,18 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include requirements.txt
+include requirements-dev.txt
+include Makefile
+recursive-include src *.py
+recursive-include tests *.py
+recursive-include tests/data *.dat *.nbt *.mca *.mcstructure
+exclude *.pyc
+exclude __pycache__
+exclude .git*
+exclude .github
+exclude .vscode
+exclude .idea
+exclude *.egg-info
+exclude dist
+exclude build
