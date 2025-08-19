@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2024-12-19
+## [0.2.0] - 2025-08-19
 
 ### Added
 - **NEW: `enable` command** - Quick toggle for Minecraft Bedrock experimental features
@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved CLI user experience with rich formatting and emojis
 - Better error messages with internationalization support
 
-## [0.1.0] - 2024-08-18
+## [0.1.0] - 2025-08-18
 
 ### Added
 - Basic NBT file reading and writing
