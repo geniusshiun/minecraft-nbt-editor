@@ -19,12 +19,12 @@ def read_requirements():
 setup(
     name="minecraft-nbt-editor",
     version="0.2.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A Python-based Minecraft NBT editor supporting both Java and Bedrock editions",
+    author="geniusshiun",
+    author_email="geniusshiun@gmail.com",
+    description="A Python-based Minecraft NBT editor supporting Bedrock editions",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/minecraft-nbt-editor",
+    url="https://github.com/geniusshiun/minecraft-nbt-editor",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     classifiers=[
@@ -66,9 +66,9 @@ setup(
     },
     keywords="minecraft nbt editor bedrock java dat file parser",
     project_urls={
-        "Bug Reports": "https://github.com/yourusername/minecraft-nbt-editor/issues",
-        "Source": "https://github.com/yourusername/minecraft-nbt-editor",
-        "Documentation": "https://github.com/yourusername/minecraft-nbt-editor#readme",
-        "Changelog": "https://github.com/yourusername/minecraft-nbt-editor/blob/main/CHANGELOG.md",
+        "Bug Reports": "https://github.com/geniusshiun/minecraft-nbt-editor/issues",
+        "Source": "https://github.com/geniusshiun/minecraft-nbt-editor",
+        "Documentation": "https://github.com/geniusshiun/minecraft-nbt-editor#readme",
+        "Changelog": "https://github.com/geniusshiun/minecraft-nbt-editor/blob/main/CHANGELOG.md",
     },
 )

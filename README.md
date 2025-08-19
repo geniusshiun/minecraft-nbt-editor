@@ -1,6 +1,6 @@
 # Minecraft NBT Editor (Python)
 
-A Python-based Minecraft NBT editor supporting both Java and Bedrock editions. This project is a complete rewrite of the original VSCode plugin, designed to work on Linux and other platforms.
+A Python-based Minecraft NBT editor supporting Bedrock editions. This project is a complete rewrite of the original VSCode plugin, designed to work on Linux and other platforms.
 
 ## Features
 
@@ -21,7 +21,7 @@ pip install minecraft-nbt-editor
 
 ### From Source
 ```bash
-git clone https://github.com/yourusername/minecraft-nbt-editor.git
+git clone https://github.com/geniusshiun/minecraft-nbt-editor.git
 cd minecraft-nbt-editor
 pip install -e .
 ```
@@ -210,7 +210,7 @@ minecraft-nbt set level.dat --path keepinventory --value 1
 
 ### Setup Development Environment
 ```bash
-git clone https://github.com/yourusername/minecraft-nbt-editor.git
+git clone https://github.com/geniusshiun/minecraft-nbt-editor.git
 cd minecraft-nbt-editor
 pip install -r requirements-dev.txt
 pip install -e .

@@ -4,5 +4,5 @@ Minecraft NBT Editor - Python 版本
 """
 
 __version__ = "0.1.0"
-__author__ = "Your Name"
+__author__ = "geniusshiun"
 __license__ = "MIT"
