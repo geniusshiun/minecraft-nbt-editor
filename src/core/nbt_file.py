@@ -17,7 +17,7 @@ from .nbt_types import (
 class NbtFile:
     """NBT 文件類，支援讀取和寫入 NBT 文件"""
     
-    def __init__(self, root: NbtCompound = None, compression: str = 'gzip', little_endian: bool = False, bedrock_header: bool = False):
+    def __init__(self, root: NbtCompound = None, compression: str = 'gzip', little_endian: bool = False, bedrock_header: bool = False, original_has_header: bool = False, bedrock_prefix: bytes = None):
         """
         初始化 NBT 文件
         
@@ -26,11 +26,15 @@ class NbtFile:
             compression: 壓縮類型 ('gzip', 'zlib', 'none')
             little_endian: 是否使用 little-endian 字節序
             bedrock_header: 是否包含 Bedrock 頭部
+            original_has_header: 原始文件是否真的有8字節頭部
+            bedrock_prefix: 原始的8字節Bedrock前缀（如果有的话）
         """
         self.root = root if root is not None else NbtCompound()
         self.compression = compression
         self.little_endian = little_endian
         self.bedrock_header = bedrock_header
+        self.original_has_header = original_has_header
+        self.bedrock_prefix = bedrock_prefix
     
     @classmethod
     def read(cls, data: Union[bytes, BinaryIO], compression: Optional[str] = None, 
@@ -80,10 +84,10 @@ class NbtFile:
         
         # 嘗試多種讀取模式
         attempts = []
-        # 推測 Bedrock 通常為 little-endian，且可能有 8 字節頭
-        attempts.append((False, False, 0))  # 標準 Java NBT
+        # 优先尝试Bedrock模式，因为这是Bedrock文件
         attempts.append((True, True, 8))    # Bedrock（有頭）
         attempts.append((True, False, 0))   # Bedrock（無頭）
+        attempts.append((False, False, 0))  # 標準 Java NBT
 
         if little_endian is not None or bedrock_header is not None:
             # 如果外部提供了提示，優先使用
@@ -93,20 +97,67 @@ class NbtFile:
             attempts = [(le, bh, off)] + [a for a in attempts if a != (le, bh, off)]
 
         last_error: Optional[Exception] = None
+        best_result = None
+        best_score = -1
+        
         for idx, (le, bh, off) in enumerate(attempts):
             try:
                 offset = off
-                root, _ = cls._read_tag(decompressed, offset, le, read_name=True)
+                root, _ = cls._read_tag(decompressed, offset, le, read_name=False)
                 if not isinstance(root, NbtCompound):
                     raise ValueError("Root tag must be a compound tag")
-                # 若根為空，視為可疑，繼續嘗試下一種模式
+                
+                # 计算这个结果的分数（键数量越多越好，偏移量越小越好）
+                score = len(root) * 1000 - off
+                
+                # 如果根标签为空，可能是因为字节序错误
                 if len(root) == 0 and idx < len(attempts) - 1:
-                    raise ValueError("Empty root compound, trying next mode")
-                return cls(root, compression, le, bh)
+                    # 尝试用相反的字节序重新读取
+                    try:
+                        alt_le = not le
+                        alt_root, _ = cls._read_tag(decompressed, offset, alt_le, read_name=False)
+                        if isinstance(alt_root, NbtCompound) and len(alt_root) > 0:
+                            # 相反的字节序更好，使用它
+                            alt_score = len(alt_root) * 1000 - off
+                            if alt_score > best_score:
+                                best_result = (alt_root, compression, alt_le, bh, off)
+                                best_score = alt_score
+                    except:
+                        pass  # 如果相反字节序失败，继续尝试下一个模式
+                    
+                    continue  # 继续尝试下一个模式
+                
+                # 记录最佳结果
+                if score > best_score:
+                    best_result = (root, compression, le, bh, off)
+                    best_score = score
+                
             except Exception as e:
                 last_error = e
                 continue
-
+        
+        # 返回最佳结果
+        if best_result is not None:
+            root, compression, le, bh, off = best_result
+            
+            # 检查原始文件是否真的有8字节头部，并保存Bedrock前缀
+            original_has_header = False
+            bedrock_prefix = None
+            
+            if bh and len(decompressed) >= 16:
+                header = decompressed[:8]
+                if header == b'\x00' * 8:
+                    # 前8字节全为零，这是真正的Bedrock头部
+                    original_has_header = True
+                else:
+                    # 前8字节不是零，但我们从偏移量8开始读取
+                    # 保存这8字节作为Bedrock前缀，在写入时恢复（VSCode兼容性要求）
+                    original_has_header = False
+                    if off == 8:  # 如果我们确实从偏移量8开始读取
+                        bedrock_prefix = header
+            
+            return cls(root, compression, le, bh, original_has_header, bedrock_prefix)
+        
         # 若所有嘗試失敗
         raise ValueError(f"Failed to read NBT file: {last_error}")
     
@@ -134,19 +185,24 @@ class NbtFile:
             return NbtEnd(), offset
         
         tag_name = ""
-        if read_name:
-            # 讀取標籤名稱長度
-            if offset + 2 > len(data):
-                raise ValueError("Unexpected end of data while reading tag name length")
-            
-            name_length = struct.unpack('<H' if little_endian else '>H', data[offset:offset+2])[0]
-            offset += 2
-            
-            # 讀取標籤名稱
+        # 每个标签都有名称长度字段，即使read_name=False也需要跳过
+        if offset + 2 > len(data):
+            raise ValueError("Unexpected end of data while reading tag name length")
+        
+        name_length = struct.unpack('<H' if little_endian else '>H', data[offset:offset+2])[0]
+        offset += 2
+        
+        if read_name and name_length > 0:
+            # 只有当read_name=True且名称长度>0时才读取名称内容
             if offset + name_length > len(data):
                 raise ValueError("Unexpected end of data while reading tag name")
             
             tag_name = data[offset:offset+name_length].decode('utf-8')
+            offset += name_length
+        elif name_length > 0:
+            # read_name=False但名称长度>0，跳过名称内容
+            if offset + name_length > len(data):
+                raise ValueError("Unexpected end of data while skipping tag name")
             offset += name_length
         
         # 讀取標籤值
@@ -352,6 +408,7 @@ class NbtFile:
                 raise ValueError("Unexpected end of data while reading long array values")
             values = list(struct.unpack(f'<{array_length}q' if little_endian else f'>{array_length}q', data[offset:offset+array_length*8]))
             return NbtLongArray(values), offset + array_length * 8
+
         if tag_type == NbtType.LIST:
             # 嵌套列表：讀 header + N 個 payload
             if offset + 5 > len(data):
@@ -365,7 +422,9 @@ class NbtFile:
                 elem, offset = cls._read_payload(element_type, data, offset, little_endian)
                 elements.append(elem)
             return NbtList(elements, element_type), offset
+
         if tag_type == NbtType.COMPOUND:
+            # 嵌套复合标签：递归处理但不读取标签类型和名称
             elements: Dict[str, NbtTag] = {}
             while True:
                 if offset >= len(data):
@@ -374,6 +433,7 @@ class NbtFile:
                 offset += 1
                 if next_tag_type == NbtType.END:
                     break
+                # 读取子标签名称
                 if offset + 2 > len(data):
                     raise ValueError("Unexpected end of data while reading compound payload name length")
                 name_length = struct.unpack('<H' if little_endian else '>H', data[offset:offset+2])[0]
@@ -382,9 +442,11 @@ class NbtFile:
                     raise ValueError("Unexpected end of data while reading compound payload name")
                 key = data[offset:offset+name_length].decode('utf-8')
                 offset += name_length
+                # 递归读取子标签的值
                 val, offset = cls._read_payload(next_tag_type, data, offset, little_endian)
                 elements[key] = val
             return NbtCompound(elements), offset
+
         raise ValueError(f"Unknown tag type in payload: {tag_type}")
     
     def write(self) -> bytes:
@@ -394,13 +456,26 @@ class NbtFile:
         Returns:
             字節序列
         """
-        # 寫入 Bedrock 頭部
-        data = b''
-        if self.bedrock_header:
-            data += struct.pack('<Q', 0)  # 8 字節的零值
+        # 先寫入根標籤內容
+        nbt_content = self._write_tag(self.root)
         
-        # 寫入根標籤
-        data += self._write_tag(self.root)
+        data = b''
+        
+        # 处理Bedrock前缀和头部
+        if self.bedrock_header:
+            if self.original_has_header:
+                # 真正的8字节零头部
+                data += struct.pack('<Q', 0)
+            elif self.bedrock_prefix:
+                # 恢复并更新Bedrock前缀，需要更新内容长度校验值
+                prefix = bytearray(self.bedrock_prefix)
+                # 前缀字节4是NBT内容长度的低8位（校验值）
+                content_length = len(nbt_content)
+                prefix[4] = content_length & 0xFF
+                data += bytes(prefix)
+        
+        # 添加NBT内容
+        data += nbt_content
         
         # 壓縮
         if self.compression == 'gzip':

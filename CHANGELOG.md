@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2024-12-19
+
+### 🚀 Major Bedrock NBT Compatibility Improvements
+
+#### Fixed
+- **CRITICAL: Fixed Bedrock NBT file corruption** - Resolved issue where Python modifications would break VSCode NBT extension compatibility and Minecraft reading
+  - **Root cause**: Bedrock NBT prefix byte 4 contains content length checksum that wasn't being updated
+  - **Impact**: Files modified by Python tool would show empty SNBT in VSCode and fail to load in Minecraft
+  - **Solution**: Automatically calculate and update checksum (prefix byte 4) when writing modified files
+- **Fixed compound tag errors** - Resolved "Top tag should be a compound" errors in VSCode NBT extension
+- **Fixed prefix preservation** - Correctly maintain original Bedrock 8-byte prefixes while updating checksums
+- **Fixed auto-detection logic** - Improved Bedrock format detection with better scoring system
+
+#### Enhanced
+- **Perfect VSCode compatibility** - Python-modified files now produce identical results to VSCode NBT extension
+- **Minecraft compatibility** - All experimental features now properly toggle in Bedrock worlds  
+- **Robust file format handling** - Supports various Bedrock prefix formats with automatic checksum management
+- **Better error reporting** - Clear debugging information for NBT parsing issues
+
+#### Technical Details
+- Added `bedrock_prefix` attribute to preserve original 8-byte prefixes
+- Implemented content length checksum calculation (prefix[4] = content_length & 0xFF)
+- Enhanced `write()` method to update checksums before file output
+- Improved auto-detection algorithm with offset-aware parsing
+- Added comprehensive test coverage for Bedrock format edge cases
+
+### 🔧 Breaking Changes
+- Bedrock NBT files now correctly update internal checksums (may change file headers)
+- Previous 0.2.x modified Bedrock files may need to be regenerated for full compatibility
+
 ## [0.2.0] - 2025-08-19
 
 ### Added

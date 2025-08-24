@@ -51,7 +51,19 @@ def print_nbt_tree(tag: NbtTag, path: str = "", max_depth: int = 10, current_dep
                 console.print(f"{'  ' * current_depth}📁 {key}:")
                 print_nbt_tree(value, current_path, max_depth, current_depth + 1)
             else:
-                console.print(f"{'  ' * current_depth}📄 {key}: {value}")
+                # 显示数据类型，特别区分Byte和String
+                type_name = type(value).__name__
+                if type_name == 'NbtByte':
+                    display_value = f"{value}b"
+                elif type_name == 'NbtString':
+                    display_value = f'"{value}"'
+                elif type_name in ['NbtShort', 'NbtInt', 'NbtLong']:
+                    display_value = f"{value}"
+                elif type_name in ['NbtFloat', 'NbtDouble']:
+                    display_value = f"{value}f" if type_name == 'NbtFloat' else f"{value}d"
+                else:
+                    display_value = str(value)
+                console.print(f"{'  ' * current_depth}📄 {key}: {display_value}")
     elif isinstance(tag, NbtList):
         for i, item in enumerate(tag._value):
             current_path = f"{path}[{i}]"
@@ -59,7 +71,19 @@ def print_nbt_tree(tag: NbtTag, path: str = "", max_depth: int = 10, current_dep
                 console.print(f"{'  ' * current_depth}📁 [{i}]:")
                 print_nbt_tree(item, current_path, max_depth, current_depth + 1)
             else:
-                console.print(f"{'  ' * current_depth}📄 [{i}]: {item}")
+                # 显示数据类型，特别区分Byte和String
+                type_name = type(item).__name__
+                if type_name == 'NbtByte':
+                    display_value = f"{item}b"
+                elif type_name == 'NbtString':
+                    display_value = f'"{item}"'
+                elif type_name in ['NbtShort', 'NbtInt', 'NbtLong']:
+                    display_value = f"{item}"
+                elif type_name in ['NbtFloat', 'NbtDouble']:
+                    display_value = f"{item}f" if type_name == 'NbtFloat' else f"{item}d"
+                else:
+                    display_value = str(item)
+                console.print(f"{'  ' * current_depth}📄 [{i}]: {display_value}")
     else:
         console.print(f"{'  ' * current_depth}📄 {tag}")
 
@@ -94,7 +118,7 @@ def print_nbt_table(tag: NbtTag, path: str = ""):
 
 
 @click.group()
-@click.version_option(version="0.2.0")
+@click.version_option(version="0.3.0")
 def cli():
     """Minecraft NBT 編輯器 - 支援 Java 和 Bedrock 版本"""
     pass
@@ -223,7 +247,19 @@ def set(file_path: str, path: str, value: str, type: Optional[str], backup: bool
                 nbt_value = NbtByte(1 if value.lower() in ('true', '1', 'yes') else 0)
             else:
                 tag_class = globals()[type_map[type]]
-                nbt_value = tag_class(value)
+                # 对于数值类型，需要先转换为适当的Python类型
+                if type in ['byte', 'short', 'int', 'long']:
+                    try:
+                        nbt_value = tag_class(int(value))
+                    except ValueError:
+                        raise ValueError(f"{type.capitalize()} value must be an integer")
+                elif type in ['float', 'double']:
+                    try:
+                        nbt_value = tag_class(float(value))
+                    except ValueError:
+                        raise ValueError(f"{type.capitalize()} value must be a number")
+                else:
+                    nbt_value = tag_class(value)
         else:
             # 自動檢測類型
             nbt_value = auto_convert_to_nbt(value)
@@ -288,7 +324,19 @@ def add(file_path: str, path: str, value: str, type: Optional[str], backup: bool
                 nbt_value = NbtByte(1 if value.lower() in ('true', '1', 'yes') else 0)
             else:
                 tag_class = globals()[type_map[type]]
-                nbt_value = tag_class(value)
+                # 对于数值类型，需要先转换为适当的Python类型
+                if type in ['byte', 'short', 'int', 'long']:
+                    try:
+                        nbt_value = tag_class(int(value))
+                    except ValueError:
+                        raise ValueError(f"{type.capitalize()} value must be an integer")
+                elif type in ['float', 'double']:
+                    try:
+                        nbt_value = tag_class(float(value))
+                    except ValueError:
+                        raise ValueError(f"{type.capitalize()} value must be a number")
+                else:
+                    nbt_value = tag_class(value)
         else:
             # 自動檢測類型
             nbt_value = auto_convert_to_nbt(value)
